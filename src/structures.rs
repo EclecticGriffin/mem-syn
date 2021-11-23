@@ -16,10 +16,7 @@ pub struct MemoryBank {
 
 pub enum RoutingProgram {
     Switch(Vec<(Condition, RoutingProgram)>, Box<RoutingProgram>),
-    Shift {
-        amount: usize,
-        direction: ShiftDirection,
-    },
+    RShift(usize),
     // these all contain the other value
     Add(u64),
     SubPortVal(u64),
@@ -86,15 +83,12 @@ impl RoutingProgram {
                 }
                 default.eval(port_val)
             }
-            RoutingProgram::Shift { amount, direction } => match direction {
-                ShiftDirection::Left => port_val << amount,
-                ShiftDirection::Right => port_val >> amount,
-            },
             RoutingProgram::Add(v) => (port_val + v),
             RoutingProgram::SubPortVal(v) => (port_val - v),
             RoutingProgram::SubValPort(v) => (v - port_val),
             RoutingProgram::Sequence(s) => s.iter().fold(port_val, |acc, x| x.eval(acc)),
             RoutingProgram::Constant(c) => *c,
+            RoutingProgram::RShift(amount) => port_val >> amount,
         }
     }
 }

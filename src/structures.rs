@@ -5,6 +5,8 @@ pub struct Component {
     width: u64,
     /// Number of parallel ports in the memory
     port_count: u64,
+    /// the list of memory banks where the index corresponds to the input port
+    banks: Vec<MemoryBank>,
 }
 
 pub struct MemoryBank {

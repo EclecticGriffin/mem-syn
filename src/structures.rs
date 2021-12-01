@@ -15,12 +15,19 @@ pub struct MemoryBank {
 }
 
 pub enum TopLevelRoutingProgram {
-    Switch(Vec<(Condition, RoutingProgram)>, Box<RoutingProgram>),
-    Prog(RoutingProgram),
+    Switch(
+        Vec<(Condition, SequenceRoutingProg)>,
+        Box<SequenceRoutingProg>,
+    ),
+    Prog(SequenceRoutingProg),
 }
 
-pub enum RoutingProgram {
-    Sequence(Vec<RoutingProgram>),
+pub enum SequenceRoutingProg {
+    Sequence(Vec<TerminalRoutingProgram>),
+    Prog(TerminalRoutingProgram),
+}
+
+pub enum TerminalRoutingProgram {
     RShift(usize),
     // these all contain the other value
     Add(u64),
@@ -76,15 +83,23 @@ impl Condition {
     }
 }
 
-impl RoutingProgram {
+impl TerminalRoutingProgram {
     pub fn eval(&self, port_val: u64) -> u64 {
         match self {
-            RoutingProgram::Add(v) => (port_val + v),
-            RoutingProgram::SubPortVal(v) => (port_val - v),
-            RoutingProgram::SubValPort(v) => (v - port_val),
-            RoutingProgram::Sequence(s) => s.iter().fold(port_val, |acc, x| x.eval(acc)),
-            RoutingProgram::Constant(c) => *c,
-            RoutingProgram::RShift(amount) => port_val >> amount,
+            TerminalRoutingProgram::Add(v) => (port_val + v),
+            TerminalRoutingProgram::SubPortVal(v) => (port_val - v),
+            TerminalRoutingProgram::SubValPort(v) => (v - port_val),
+            TerminalRoutingProgram::Constant(c) => *c,
+            TerminalRoutingProgram::RShift(amount) => port_val >> amount,
+        }
+    }
+}
+
+impl SequenceRoutingProg {
+    pub fn eval(&self, port_val: u64) -> u64 {
+        match self {
+            SequenceRoutingProg::Sequence(s) => s.iter().fold(port_val, |acc, x| x.eval(acc)),
+            SequenceRoutingProg::Prog(p) => p.eval(port_val),
         }
     }
 }

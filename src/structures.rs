@@ -128,3 +128,22 @@ impl MemoryBank {
         result.map(|x| *x == index).unwrap_or(false)
     }
 }
+
+impl From<TerminalRoutingProgram> for SequenceRoutingProg {
+    fn from(p: TerminalRoutingProgram) -> Self {
+        Self::Prog(p)
+    }
+}
+
+impl From<SequenceRoutingProg> for TopLevelRoutingProgram {
+    fn from(p: SequenceRoutingProg) -> Self {
+        Self::Prog(p)
+    }
+}
+
+impl From<TerminalRoutingProgram> for TopLevelRoutingProgram {
+    fn from(p: TerminalRoutingProgram) -> Self {
+        let p: SequenceRoutingProg = p.into();
+        p.into()
+    }
+}

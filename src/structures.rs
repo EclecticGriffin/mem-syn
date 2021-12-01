@@ -10,18 +10,22 @@ pub struct Component {
 }
 
 pub struct MemoryBank {
-    routing: RoutingProgram,
+    routing: TopLevelRoutingProgram,
     memory_layout: Vec<u64>,
 }
 
-pub enum RoutingProgram {
+pub enum TopLevelRoutingProgram {
     Switch(Vec<(Condition, RoutingProgram)>, Box<RoutingProgram>),
+    Prog(RoutingProgram),
+}
+
+pub enum RoutingProgram {
+    Sequence(Vec<RoutingProgram>),
     RShift(usize),
     // these all contain the other value
     Add(u64),
     SubPortVal(u64),
     SubValPort(u64),
-    Sequence(Vec<RoutingProgram>),
     Constant(u64),
 }
 
@@ -75,7 +79,20 @@ impl Condition {
 impl RoutingProgram {
     pub fn eval(&self, port_val: u64) -> u64 {
         match self {
-            RoutingProgram::Switch(vec, default) => {
+            RoutingProgram::Add(v) => (port_val + v),
+            RoutingProgram::SubPortVal(v) => (port_val - v),
+            RoutingProgram::SubValPort(v) => (v - port_val),
+            RoutingProgram::Sequence(s) => s.iter().fold(port_val, |acc, x| x.eval(acc)),
+            RoutingProgram::Constant(c) => *c,
+            RoutingProgram::RShift(amount) => port_val >> amount,
+        }
+    }
+}
+
+impl TopLevelRoutingProgram {
+    pub fn eval(&self, port_val: u64) -> u64 {
+        match self {
+            TopLevelRoutingProgram::Switch(vec, default) => {
                 for (cond, prog) in vec.iter() {
                     if cond.eval(port_val) {
                         return prog.eval(port_val);
@@ -83,12 +100,7 @@ impl RoutingProgram {
                 }
                 default.eval(port_val)
             }
-            RoutingProgram::Add(v) => (port_val + v),
-            RoutingProgram::SubPortVal(v) => (port_val - v),
-            RoutingProgram::SubValPort(v) => (v - port_val),
-            RoutingProgram::Sequence(s) => s.iter().fold(port_val, |acc, x| x.eval(acc)),
-            RoutingProgram::Constant(c) => *c,
-            RoutingProgram::RShift(amount) => port_val >> amount,
+            TopLevelRoutingProgram::Prog(p) => p.eval(port_val),
         }
     }
 }

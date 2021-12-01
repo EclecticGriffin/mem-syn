@@ -37,4 +37,8 @@ impl Trace {
     pub fn num_ports(&self) -> usize {
         self.trace.get(0).map_or(0, |x| x.len())
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Vec<Option<usize>>> {
+        self.trace.iter()
+    }
 }

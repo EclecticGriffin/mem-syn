@@ -3,10 +3,15 @@ use serde_json::{self, Result};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Trace {
+    size: usize,
     trace: Vec<Vec<Option<usize>>>,
 }
 
 impl Trace {
+    pub fn size(&self) -> usize {
+        self.size
+    }
+
     pub fn parse_trace<S: AsRef<str>>(input: S) -> Result<Self> {
         let mut trace: Self = serde_json::from_str(input.as_ref())?;
         trace.normalize();
@@ -40,5 +45,10 @@ impl Trace {
 
     pub fn iter(&self) -> impl Iterator<Item = &Vec<Option<usize>>> {
         self.trace.iter()
+    }
+
+    pub fn bits_required(&self) -> u32 {
+        let bits = std::mem::size_of::<usize>() * 8;
+        (bits as u32) - self.size.leading_zeros() - 1
     }
 }

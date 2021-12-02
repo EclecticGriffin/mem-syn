@@ -1,4 +1,5 @@
 mod dsl;
+mod solver;
 mod structures;
 
 use dsl::Trace;
@@ -70,6 +71,7 @@ fn main() {
 
             let trace = Trace::parse_trace(contents).expect("malformed trace file");
             println!("{:?}", trace);
+            solver::solve_trace(&trace);
         }
         Command::Output(_) => todo!(),
         Command::Verify(_) => todo!(),

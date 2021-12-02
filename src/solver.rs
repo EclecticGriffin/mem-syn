@@ -21,7 +21,10 @@ impl<'a> ProblemContext<'a> {
         let (out, cond) =
             self.apply_terminal(input_index, bank_idx, &self.routing_fns[bank_idx], ctx);
 
-        (cond, self.banks[bank_idx].select(&out).as_int().unwrap())
+        (
+            cond.simplify(),
+            self.banks[bank_idx].select(&out).as_int().unwrap(),
+        )
     }
 
     fn apply_terminal(
@@ -125,19 +128,19 @@ impl<'a> ProblemContext<'a> {
             },
         ];
 
-        let variants_test = (0_usize..=5)
-            .map(|x| {
-                self.terminals.variants[x]
-                    .tester
-                    .apply(&[datatype])
-                    .as_bool()
-                    .unwrap()
-            })
-            .collect::<Vec<_>>();
+        // let variants_test = (0_usize..=5)
+        //     .map(|x| {
+        //         self.terminals.variants[x]
+        //             .tester
+        //             .apply(&[datatype])
+        //             .as_bool()
+        //             .unwrap()
+        //     })
+        //     .collect::<Vec<_>>();
 
         let b = Bool::and(ctx, &bools.iter().collect::<Vec<_>>());
-        let c = Bool::or(ctx, &variants_test.iter().collect::<Vec<_>>());
-        (out, b & c)
+        // let c = Bool::or(ctx, &variants_test.iter().collect::<Vec<_>>());
+        (out.clone(), (b & out_bv.to_int(false)._eq(&out)).simplify())
     }
 }
 
@@ -224,7 +227,7 @@ pub fn solve_trace(input: &Trace) {
             }
         }
     }
-    solver.check();
+    // solver.check();
 
     for i in 0..input.size() {
         let req_int = z3_ast::Int::from_u64(&ctx, i as u64);

@@ -14,6 +14,73 @@ pub struct MemoryBank {
     memory_layout: Vec<u64>,
 }
 
+pub enum TopLevelMemoryLayout {
+    Bank(Vec<MemoryLayout>),
+    Mem(Box<MemoryLayout>),
+}
+
+pub enum MemoryLayout {
+    Range {
+        start: usize,
+        finish: usize,
+        stride: Option<usize>,
+    },
+}
+
+impl MemoryLayout {
+    pub fn new(start: usize, finish: usize, stride: Option<usize>) -> Self {
+        assert!(start < finish);
+        assert!(!(stride.is_some() && stride.unwrap() == 0));
+        Self::Range {
+            start,
+            finish,
+            stride,
+        }
+    }
+
+    #[inline]
+    pub fn contains(&self, target: usize) -> bool {
+        match self {
+            MemoryLayout::Range {
+                start,
+                finish,
+                stride,
+            } => {
+                target >= *start && target < *finish && (target + start) % stride.unwrap_or(1) == 0
+            }
+        }
+    }
+
+    pub fn index_of(&self, target: usize) -> Option<usize> {
+        if self.contains(target) {
+            let out = match self {
+                MemoryLayout::Range { start, stride, .. } => (target - start) / stride.unwrap_or(1),
+            };
+            return Some(out);
+        }
+        None
+    }
+
+    pub fn gen_array(&self) -> Vec<usize> {
+        let mut out = Vec::new();
+    }
+}
+
+#[macro_export]
+macro_rules! memory {
+    ($start:expr ; $end:expr ; $stride:expr) => {
+        $crate::structures::MemoryLayout::Range {
+            start: $start,
+            finish: $end,
+            stride: ($stride).into(),
+        }
+    };
+
+    ($start:expr ; $end:expr) => {
+        memory!($start ; $end ; 1)
+    };
+}
+
 pub enum TopLevelRoutingProgram {
     Switch(
         Vec<(Condition, SequenceRoutingProg)>,

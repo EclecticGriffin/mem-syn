@@ -71,7 +71,9 @@ fn main() {
 
             let trace = Trace::parse_trace(contents).expect("malformed trace file");
             println!("{:?}", trace);
-            solver::solve_trace(&trace);
+            // solver::solve_trace(&trace);
+
+            let mem = memory![2;5;1+1];
         }
         Command::Output(_) => todo!(),
         Command::Verify(_) => todo!(),

@@ -5,10 +5,11 @@ use z3::{
 };
 
 struct ProblemContext<'a> {
-    banks: Vec<z3_ast::Array<'a>>,
+    banks: Vec<Datatype<'a>>,
     routing_fns: Vec<Datatype<'a>>,
     addr_size: u32,
-    terminals: DatatypeSort<'a>,
+    terminals_prog: DatatypeSort<'a>,
+    partition_type: DatatypeSort<'a>,
 }
 
 impl<'a> ProblemContext<'a> {
@@ -23,7 +24,8 @@ impl<'a> ProblemContext<'a> {
 
         (
             cond.simplify(),
-            self.banks[bank_idx].select(&out).as_int().unwrap(),
+            // self.banks[bank_idx].select(&out).as_int().unwrap(),
+            todo!(),
         )
     }
 
@@ -34,7 +36,7 @@ impl<'a> ProblemContext<'a> {
         datatype: &Datatype<'a>,
         ctx: &'a z3::Context,
     ) -> (Int<'a>, Bool<'a>) {
-        assert_eq!(datatype.get_sort(), self.terminals.sort);
+        assert_eq!(datatype.get_sort(), self.terminals_prog.sort);
         let out = Int::new_const(
             ctx,
             format!("out_{}_{}", bank_idx, input_index.as_u64().unwrap()),
@@ -44,7 +46,7 @@ impl<'a> ProblemContext<'a> {
         let bools = vec![
             // No Op
             {
-                let test = self.terminals.variants[0]
+                let test = self.terminals_prog.variants[0]
                     .tester
                     .apply(&[datatype])
                     .as_bool()
@@ -53,7 +55,7 @@ impl<'a> ProblemContext<'a> {
             },
             // Shift Right
             {
-                let test = self.terminals.variants[1]
+                let test = self.terminals_prog.variants[1]
                     .tester
                     .apply(&[datatype])
                     .as_bool()
@@ -61,7 +63,7 @@ impl<'a> ProblemContext<'a> {
 
                 let shifted = in_bv
                     .bvlshr(
-                        &self.terminals.variants[1].accessors[0]
+                        &self.terminals_prog.variants[1].accessors[0]
                             .apply(&[datatype])
                             .as_bv()
                             .unwrap(),
@@ -72,12 +74,12 @@ impl<'a> ProblemContext<'a> {
             },
             // ADD
             {
-                let test = self.terminals.variants[2]
+                let test = self.terminals_prog.variants[2]
                     .tester
                     .apply(&[datatype])
                     .as_bool()
                     .unwrap();
-                let held_int = self.terminals.variants[2].accessors[0]
+                let held_int = self.terminals_prog.variants[2].accessors[0]
                     .apply(&[datatype])
                     .as_bv()
                     .unwrap();
@@ -86,12 +88,12 @@ impl<'a> ProblemContext<'a> {
             },
             // SUB PV
             {
-                let test = self.terminals.variants[3]
+                let test = self.terminals_prog.variants[3]
                     .tester
                     .apply(&[datatype])
                     .as_bool()
                     .unwrap();
-                let held_int = self.terminals.variants[3].accessors[0]
+                let held_int = self.terminals_prog.variants[3].accessors[0]
                     .apply(&[datatype])
                     .as_bv()
                     .unwrap();
@@ -100,12 +102,12 @@ impl<'a> ProblemContext<'a> {
             },
             // SUB VP
             {
-                let test = self.terminals.variants[4]
+                let test = self.terminals_prog.variants[4]
                     .tester
                     .apply(&[datatype])
                     .as_bool()
                     .unwrap();
-                let held_int = self.terminals.variants[4].accessors[0]
+                let held_int = self.terminals_prog.variants[4].accessors[0]
                     .apply(&[datatype])
                     .as_bv()
                     .unwrap();
@@ -114,12 +116,12 @@ impl<'a> ProblemContext<'a> {
             },
             // CONST
             {
-                let test = self.terminals.variants[5]
+                let test = self.terminals_prog.variants[5]
                     .tester
                     .apply(&[datatype])
                     .as_bool()
                     .unwrap();
-                let held_int = self.terminals.variants[5].accessors[0]
+                let held_int = self.terminals_prog.variants[5].accessors[0]
                     .apply(&[datatype])
                     .as_bv()
                     .unwrap();
@@ -127,16 +129,6 @@ impl<'a> ProblemContext<'a> {
                 (!test) | held_int._eq(&out_bv)
             },
         ];
-
-        // let variants_test = (0_usize..=5)
-        //     .map(|x| {
-        //         self.terminals.variants[x]
-        //             .tester
-        //             .apply(&[datatype])
-        //             .as_bool()
-        //             .unwrap()
-        //     })
-        //     .collect::<Vec<_>>();
 
         let b = Bool::and(ctx, &bools.iter().collect::<Vec<_>>());
         // let c = Bool::or(ctx, &variants_test.iter().collect::<Vec<_>>());
@@ -183,22 +175,30 @@ fn terminal_routing_program(ctx: &z3::Context, size: u32) -> z3::DatatypeSort {
     terminal
 }
 
+fn terminal_partition(ctx: &z3::Context) -> z3::DatatypeSort {
+    let part = DatatypeBuilder::new(ctx, "Partition")
+        .variant(
+            "Range",
+            vec![
+                ("start_v", DatatypeAccessor::Sort(Sort::int(ctx))),
+                ("end_v", DatatypeAccessor::Sort(Sort::int(ctx))),
+                ("stride_v", DatatypeAccessor::Sort(Sort::int(ctx))),
+            ],
+        )
+        .finish();
+    part
+}
+
 pub fn solve_trace(input: &Trace) {
     let addr_size = input.bits_required();
     let mut ctx = z3::Context::new(&z3::Config::default());
     let mut solver = z3::Solver::new(&ctx);
 
     let terminal_rprogs = terminal_routing_program(&ctx, addr_size);
+    let term_part = terminal_partition(&ctx);
 
     let banks = (0..input.num_ports())
-        .map(|i| {
-            z3_ast::Array::new_const(
-                &ctx,
-                format!("bank_{}", i),
-                &z3::Sort::int(&ctx),
-                &z3::Sort::int(&ctx),
-            )
-        })
+        .map(|i| z3_ast::Datatype::new_const(&ctx, format!("bank_{}", i), &term_part.sort))
         .collect::<Vec<_>>();
 
     let routing_fns = (0..input.num_ports())
@@ -209,7 +209,8 @@ pub fn solve_trace(input: &Trace) {
         banks,
         routing_fns,
         addr_size,
-        terminals: terminal_rprogs,
+        terminals_prog: terminal_rprogs,
+        partition_type: term_part,
     };
 
     for line in input.iter() {

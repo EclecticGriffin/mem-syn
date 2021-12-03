@@ -194,7 +194,7 @@ impl MemoryLayout {
                 start,
                 finish,
                 stride,
-            } => target >= start && target < finish && ((target + start) % stride) == 0,
+            } => target >= start && target < finish && ((target - start) % stride) == 0,
         }
     }
 
@@ -235,7 +235,11 @@ impl MemoryLayout {
                 debug_assert!(out
                     .iter()
                     .enumerate()
-                    .all(|(i, x)| self.index_of(x).unwrap() == i));
+                    .all(|(i, x)| self.index_of(x).unwrap_or_else(|| panic!("{:?}", x)) == i));
+                debug_assert!(out
+                    .iter()
+                    .enumerate()
+                    .all(|(i, x)| self.get(&i).unwrap() == *x));
 
                 out
             }
@@ -244,6 +248,19 @@ impl MemoryLayout {
 
     pub fn last_idx(&self) -> usize {
         self.size() - 1
+    }
+
+    pub fn get(&self, idx: &usize) -> Option<usize> {
+        if *idx >= self.size() {
+            return None;
+        }
+        match self {
+            MemoryLayout::Range {
+                start,
+                finish,
+                stride,
+            } => Some(start + (stride * idx)),
+        }
     }
 }
 

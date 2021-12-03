@@ -61,19 +61,49 @@ impl MemoryLayout {
         None
     }
 
+    pub fn size(&self) -> usize {
+        match self {
+            MemoryLayout::Range {
+                start,
+                finish,
+                stride,
+            } => ((finish - start) / stride.unwrap_or(1)) + 1,
+        }
+    }
+
     pub fn gen_array(&self) -> Vec<usize> {
-        let mut out = Vec::new();
+        let mut out = Vec::with_capacity(self.size());
+        match self {
+            MemoryLayout::Range {
+                start,
+                finish,
+                stride,
+            } => {
+                let mut current = *start;
+                while current < *finish {
+                    out.push(current);
+                    current += stride.unwrap_or(1);
+                }
+
+                debug_assert!(out
+                    .iter()
+                    .enumerate()
+                    .all(|(i, x)| self.index_of(*x).unwrap() == i));
+
+                out
+            }
+        }
     }
 }
 
 #[macro_export]
 macro_rules! memory {
     ($start:expr ; $end:expr ; $stride:expr) => {
-        $crate::structures::MemoryLayout::Range {
-            start: $start,
-            finish: $end,
-            stride: ($stride).into(),
-        }
+        $crate::structures::MemoryLayout::new(
+            $start,
+            $end,
+            ($stride).into(),
+        )
     };
 
     ($start:expr ; $end:expr) => {

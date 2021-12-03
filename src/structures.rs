@@ -150,8 +150,8 @@ impl TopLevelRoutingProgram {
 impl MemoryBank {
     pub fn can_read(&self, index: usize) -> bool {
         let routed_index = self.routing.eval(index as u64);
-        let result = self.memory_layout.get(routed_index as usize);
-        result.map(|x| *x == index).unwrap_or(false)
+        let result = self.memory_layout.get(&(routed_index as usize));
+        result.map(|x| x == index).unwrap_or(false)
     }
 }
 

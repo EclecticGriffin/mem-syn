@@ -11,7 +11,7 @@ pub struct Component {
 
 pub struct MemoryBank {
     routing: TopLevelRoutingProgram,
-    memory_layout: Vec<usize>,
+    memory_layout: TopLevelMemoryLayout,
 }
 
 pub struct TopLevelMemoryLayout {
@@ -281,6 +281,18 @@ impl TopLevelMemoryLayout {
             }
         }
 
+        None
+    }
+
+    pub fn get(&self, idx: &usize) -> Option<usize> {
+        let mut bottom_idx = 0_usize;
+        for mem in self.mems.iter() {
+            if idx - bottom_idx < mem.size() {
+                return mem.get(&(idx - bottom_idx));
+            } else {
+                bottom_idx += mem.size();
+            }
+        }
         None
     }
 }

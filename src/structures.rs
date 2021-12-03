@@ -14,9 +14,8 @@ pub struct MemoryBank {
     memory_layout: Vec<u64>,
 }
 
-pub enum TopLevelMemoryLayout {
-    Bank(Vec<MemoryLayout>),
-    Mem(Box<MemoryLayout>),
+pub struct TopLevelMemoryLayout {
+    mems: Vec<MemoryLayout>,
 }
 
 pub enum MemoryLayout {
@@ -25,75 +24,6 @@ pub enum MemoryLayout {
         finish: usize,
         stride: usize,
     },
-}
-
-impl MemoryLayout {
-    pub fn new(start: usize, finish: usize, stride: Option<usize>) -> Self {
-        let stride = stride.unwrap_or(1);
-        assert!(start < finish);
-        assert!(stride != 0);
-
-        Self::Range {
-            start,
-            finish,
-            stride,
-        }
-    }
-
-    #[inline]
-    pub fn contains(&self, target: usize) -> bool {
-        match self {
-            MemoryLayout::Range {
-                start,
-                finish,
-                stride,
-            } => target >= *start && target < *finish && ((target + start) % stride) == 0,
-        }
-    }
-
-    pub fn index_of(&self, target: usize) -> Option<usize> {
-        if self.contains(target) {
-            let out = match self {
-                MemoryLayout::Range { start, stride, .. } => (target - start) / stride,
-            };
-            return Some(out);
-        }
-        None
-    }
-
-    pub fn size(&self) -> usize {
-        match self {
-            MemoryLayout::Range {
-                start,
-                finish,
-                stride,
-            } => ((finish - start) / stride) + 1,
-        }
-    }
-
-    pub fn gen_array(&self) -> Vec<usize> {
-        let mut out = Vec::with_capacity(self.size());
-        match self {
-            MemoryLayout::Range {
-                start,
-                finish,
-                stride,
-            } => {
-                let mut current = *start;
-                while current < *finish {
-                    out.push(current);
-                    current += stride;
-                }
-
-                debug_assert!(out
-                    .iter()
-                    .enumerate()
-                    .all(|(i, x)| self.index_of(*x).unwrap() == i));
-
-                out
-            }
-        }
-    }
 }
 
 #[macro_export]
@@ -242,5 +172,74 @@ impl From<TerminalRoutingProgram> for TopLevelRoutingProgram {
     fn from(p: TerminalRoutingProgram) -> Self {
         let p: SequenceRoutingProg = p.into();
         p.into()
+    }
+}
+
+impl MemoryLayout {
+    pub fn new(start: usize, finish: usize, stride: Option<usize>) -> Self {
+        let stride = stride.unwrap_or(1);
+        assert!(start < finish);
+        assert!(stride != 0);
+
+        Self::Range {
+            start,
+            finish,
+            stride,
+        }
+    }
+
+    #[inline]
+    pub fn contains(&self, target: usize) -> bool {
+        match self {
+            MemoryLayout::Range {
+                start,
+                finish,
+                stride,
+            } => target >= *start && target < *finish && ((target + start) % stride) == 0,
+        }
+    }
+
+    pub fn index_of(&self, target: usize) -> Option<usize> {
+        if self.contains(target) {
+            let out = match self {
+                MemoryLayout::Range { start, stride, .. } => (target - start) / stride,
+            };
+            return Some(out);
+        }
+        None
+    }
+
+    pub fn size(&self) -> usize {
+        match self {
+            MemoryLayout::Range {
+                start,
+                finish,
+                stride,
+            } => ((finish - start) / stride) + 1,
+        }
+    }
+
+    pub fn gen_array(&self) -> Vec<usize> {
+        let mut out = Vec::with_capacity(self.size());
+        match self {
+            MemoryLayout::Range {
+                start,
+                finish,
+                stride,
+            } => {
+                let mut current = *start;
+                while current < *finish {
+                    out.push(current);
+                    current += stride;
+                }
+
+                debug_assert!(out
+                    .iter()
+                    .enumerate()
+                    .all(|(i, x)| self.index_of(*x).unwrap() == i));
+
+                out
+            }
+        }
     }
 }

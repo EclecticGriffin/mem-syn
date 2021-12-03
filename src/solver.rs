@@ -13,6 +13,39 @@ struct ProblemContext<'a> {
 }
 
 impl<'a> ProblemContext<'a> {
+    fn partition_conditions(&self, ctx: &'a z3::Context, size: usize) -> Bool<'a> {
+        let mut acc = Bool::from_bool(ctx, true);
+        for bank in self.banks.iter() {
+            let test = self.partition_type.variants[0]
+                .tester
+                .apply(&[bank])
+                .as_bool()
+                .unwrap();
+
+            let start = self.partition_type.variants[0].accessors[0]
+                .apply(&[bank])
+                .as_int()
+                .unwrap();
+
+            let finish = self.partition_type.variants[0].accessors[1]
+                .apply(&[bank])
+                .as_int()
+                .unwrap();
+
+            let stride = self.partition_type.variants[0].accessors[2]
+                .apply(&[bank])
+                .as_int()
+                .unwrap();
+
+            let bound_conditions = start.ge(&Int::from_u64(ctx, 0))
+        & finish.gt(&start)
+        & finish.le(&Int::from_u64(ctx, size as u64)) //finish < size
+        & stride.gt(&Int::from_u64(ctx, 0)); // stride > 0
+            acc &= bound_conditions
+        }
+        acc
+    }
+
     fn map_addr(
         &self,
         input_index: &z3_ast::Int<'a>,
@@ -22,11 +55,34 @@ impl<'a> ProblemContext<'a> {
         let (out, cond) =
             self.apply_terminal(input_index, bank_idx, &self.routing_fns[bank_idx], ctx);
 
-        (
-            cond.simplify(),
-            // self.banks[bank_idx].select(&out).as_int().unwrap(),
-            todo!(),
-        )
+        let bank = &self.banks[bank_idx];
+
+        let test = self.partition_type.variants[0]
+            .tester
+            .apply(&[bank])
+            .as_bool()
+            .unwrap();
+
+        let start = self.partition_type.variants[0].accessors[0]
+            .apply(&[bank])
+            .as_int()
+            .unwrap();
+
+        let finish = self.partition_type.variants[0].accessors[1]
+            .apply(&[bank])
+            .as_int()
+            .unwrap();
+
+        let stride = self.partition_type.variants[0].accessors[2]
+            .apply(&[bank])
+            .as_int()
+            .unwrap();
+
+        let index_actual = start + (out * stride);
+
+        let validity = index_actual.lt(&finish);
+
+        ((cond & validity).simplify(), index_actual)
     }
 
     fn apply_terminal(
@@ -213,6 +269,8 @@ pub fn solve_trace(input: &Trace) {
         partition_type: term_part,
     };
 
+    solver.assert(&prob_ctx.partition_conditions(&ctx, input.size()));
+
     for line in input.iter() {
         for (bank_idx, request) in line.iter().enumerate() {
             if let Some(request_index) = request {
@@ -230,23 +288,23 @@ pub fn solve_trace(input: &Trace) {
     }
     // solver.check();
 
-    for i in 0..input.size() {
-        let req_int = z3_ast::Int::from_u64(&ctx, i as u64);
-        println!("{:?}", i);
+    // for i in 0..input.size() {
+    //     let req_int = z3_ast::Int::from_u64(&ctx, i as u64);
+    //     println!("{:?}", i);
 
-        let bools = (0..input.num_ports())
-            .into_iter()
-            .map(|bank_idx| {
-                let (cond, index_maps_to) = prob_ctx.map_addr(&req_int, bank_idx, &ctx);
-                cond & index_maps_to._eq(&req_int)
-                    & index_maps_to.ge(&Int::from_u64(&ctx, 0))
-                    & index_maps_to.lt(&z3_ast::Int::from_u64(&ctx, input.size() as u64))
-            })
-            .collect::<Vec<_>>();
-        let borrow_bools = bools.iter().collect::<Vec<_>>();
+    //     let bools = (0..input.num_ports())
+    //         .into_iter()
+    //         .map(|bank_idx| {
+    //             let (cond, index_maps_to) = prob_ctx.map_addr(&req_int, bank_idx, &ctx);
+    //             cond & index_maps_to._eq(&req_int)
+    //                 & index_maps_to.ge(&Int::from_u64(&ctx, 0))
+    //                 & index_maps_to.lt(&z3_ast::Int::from_u64(&ctx, input.size() as u64))
+    //         })
+    //         .collect::<Vec<_>>();
+    //     let borrow_bools = bools.iter().collect::<Vec<_>>();
 
-        solver.assert(&z3_ast::Bool::or(&ctx, &borrow_bools));
-    }
+    //     solver.assert(&z3_ast::Bool::or(&ctx, &borrow_bools));
+    // }
 
     solver.check();
 

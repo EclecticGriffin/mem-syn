@@ -13,6 +13,29 @@ struct ProblemContext<'a> {
 }
 
 impl<'a> ProblemContext<'a> {
+    fn partition_cost(&self, ctx: &'a z3::Context) -> Int<'a> {
+        self.banks
+            .iter()
+            .map(|bank| {
+                let start = self.partition_type.variants[0].accessors[0]
+                    .apply(&[bank])
+                    .as_int()
+                    .unwrap();
+
+                let finish = self.partition_type.variants[0].accessors[1]
+                    .apply(&[bank])
+                    .as_int()
+                    .unwrap();
+
+                let stride = self.partition_type.variants[0].accessors[2]
+                    .apply(&[bank])
+                    .as_int()
+                    .unwrap();
+                ((finish - start) / stride) + Int::from_u64(ctx, 1)
+            })
+            .fold(Int::from_u64(ctx, 1), |acc, x| acc * x)
+    }
+
     fn partition_conditions(&self, ctx: &'a z3::Context, size: usize) -> Bool<'a> {
         let mut acc = Bool::from_bool(ctx, true);
         for bank in self.banks.iter() {
@@ -37,10 +60,12 @@ impl<'a> ProblemContext<'a> {
                 .as_int()
                 .unwrap();
 
-            let bound_conditions = start.ge(&Int::from_u64(ctx, 0))
-        & finish.gt(&start)
-        & finish.le(&Int::from_u64(ctx, size as u64)) //finish < size
-        & stride.gt(&Int::from_u64(ctx, 0)); // stride > 0
+            let bound_conditions = test.implies(
+                &(start.ge(&Int::from_u64(ctx, 0))
+                    & finish.gt(&start)
+                    & finish.le(&Int::from_u64(ctx, size as u64))
+                    & stride.gt(&Int::from_u64(ctx, 0))),
+            );
             acc &= bound_conditions
         }
         acc
@@ -248,7 +273,7 @@ fn terminal_partition(ctx: &z3::Context) -> z3::DatatypeSort {
 pub fn solve_trace(input: &Trace) {
     let addr_size = input.bits_required();
     let mut ctx = z3::Context::new(&z3::Config::default());
-    let mut solver = z3::Solver::new(&ctx);
+    let mut solver = z3::Optimize::new(&ctx);
 
     let terminal_rprogs = terminal_routing_program(&ctx, addr_size);
     let term_part = terminal_partition(&ctx);
@@ -306,7 +331,9 @@ pub fn solve_trace(input: &Trace) {
     //     solver.assert(&z3_ast::Bool::or(&ctx, &borrow_bools));
     // }
 
-    solver.check();
+    solver.minimize(&prob_ctx.partition_cost(&ctx));
+
+    solver.check(&[]);
 
     println!("{:?}", solver);
 

@@ -23,14 +23,16 @@ pub enum MemoryLayout {
     Range {
         start: usize,
         finish: usize,
-        stride: Option<usize>,
+        stride: usize,
     },
 }
 
 impl MemoryLayout {
     pub fn new(start: usize, finish: usize, stride: Option<usize>) -> Self {
+        let stride = stride.unwrap_or(1);
         assert!(start < finish);
-        assert!(!(stride.is_some() && stride.unwrap() == 0));
+        assert!(stride != 0);
+
         Self::Range {
             start,
             finish,
@@ -45,16 +47,14 @@ impl MemoryLayout {
                 start,
                 finish,
                 stride,
-            } => {
-                target >= *start && target < *finish && (target + start) % stride.unwrap_or(1) == 0
-            }
+            } => target >= *start && target < *finish && ((target + start) % stride) == 0,
         }
     }
 
     pub fn index_of(&self, target: usize) -> Option<usize> {
         if self.contains(target) {
             let out = match self {
-                MemoryLayout::Range { start, stride, .. } => (target - start) / stride.unwrap_or(1),
+                MemoryLayout::Range { start, stride, .. } => (target - start) / stride,
             };
             return Some(out);
         }
@@ -67,7 +67,7 @@ impl MemoryLayout {
                 start,
                 finish,
                 stride,
-            } => ((finish - start) / stride.unwrap_or(1)) + 1,
+            } => ((finish - start) / stride) + 1,
         }
     }
 
@@ -82,7 +82,7 @@ impl MemoryLayout {
                 let mut current = *start;
                 while current < *finish {
                     out.push(current);
-                    current += stride.unwrap_or(1);
+                    current += stride;
                 }
 
                 debug_assert!(out
@@ -107,7 +107,7 @@ macro_rules! memory {
     };
 
     ($start:expr ; $end:expr) => {
-        memory!($start ; $end ; 1)
+        memory!($start ; $end ; None)
     };
 }
 

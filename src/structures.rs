@@ -11,7 +11,7 @@ pub struct Component {
 
 pub struct MemoryBank {
     routing: TopLevelRoutingProgram,
-    memory_layout: Vec<u64>,
+    memory_layout: Vec<usize>,
 }
 
 pub struct TopLevelMemoryLayout {
@@ -149,8 +149,7 @@ impl TopLevelRoutingProgram {
 
 impl MemoryBank {
     pub fn can_read(&self, index: usize) -> bool {
-        let index: u64 = index as u64;
-        let routed_index = self.routing.eval(index);
+        let routed_index = self.routing.eval(index as u64);
         let result = self.memory_layout.get(routed_index as usize);
         result.map(|x| *x == index).unwrap_or(false)
     }
@@ -189,17 +188,17 @@ impl MemoryLayout {
     }
 
     #[inline]
-    pub fn contains(&self, target: usize) -> bool {
+    pub fn contains(&self, target: &usize) -> bool {
         match self {
             MemoryLayout::Range {
                 start,
                 finish,
                 stride,
-            } => target >= *start && target < *finish && ((target + start) % stride) == 0,
+            } => target >= start && target < finish && ((target + start) % stride) == 0,
         }
     }
 
-    pub fn index_of(&self, target: usize) -> Option<usize> {
+    pub fn index_of(&self, target: &usize) -> Option<usize> {
         if self.contains(target) {
             let out = match self {
                 MemoryLayout::Range { start, stride, .. } => (target - start) / stride,
@@ -236,10 +235,35 @@ impl MemoryLayout {
                 debug_assert!(out
                     .iter()
                     .enumerate()
-                    .all(|(i, x)| self.index_of(*x).unwrap() == i));
+                    .all(|(i, x)| self.index_of(x).unwrap() == i));
 
                 out
             }
         }
+    }
+
+    pub fn last_idx(&self) -> usize {
+        self.size() - 1
+    }
+}
+
+impl TopLevelMemoryLayout {
+    pub fn contains(&self, target: &usize) -> bool {
+        self.mems.iter().any(|x| x.contains(target))
+    }
+
+    pub fn index_of(&self, target: &usize) -> Option<usize> {
+        let mut idx = 0;
+
+        for mem in self.mems.iter() {
+            if mem.contains(target) {
+                idx += mem.index_of(target).unwrap();
+                return Some(idx);
+            } else {
+                idx += mem.size();
+            }
+        }
+
+        None
     }
 }

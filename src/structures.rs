@@ -17,7 +17,7 @@ impl Component {
     pub fn from_trace(banks: Vec<MemoryBank>, trace: &Trace) -> Component {
         Self {
             size: trace.size() as u64,
-            width: 32,
+            width: trace.bitwidth() as u64,
             address_bit_width: trace.bits_required() as u64,
             port_count: trace.num_ports() as u64,
             banks,

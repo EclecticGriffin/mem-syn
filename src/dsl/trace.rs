@@ -3,13 +3,21 @@ use serde_json::{self, Result};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Trace {
+    /// the number of entries in the logical memory
     size: usize,
+    /// the bitwidth of the elements in the logical memory
+    bitwidth: usize,
+    /// the input trace
     trace: Vec<Vec<Option<usize>>>,
 }
 
 impl Trace {
     pub fn size(&self) -> usize {
         self.size
+    }
+
+    pub fn bitwidth(&self) -> usize {
+        self.bitwidth
     }
 
     pub fn parse_trace<S: AsRef<str>>(input: S) -> Result<Self> {

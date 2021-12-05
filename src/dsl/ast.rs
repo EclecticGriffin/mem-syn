@@ -266,3 +266,19 @@ impl AstParser {
         ))
     }
 }
+
+impl AstParser {
+    pub fn parse_partition<S: AsRef<str>>(input: S) -> ParseResult<structures::MemoryLayout> {
+        let inputs = AstParser::parse(Rule::partition, input.as_ref())?;
+        let input = inputs.single()?;
+        AstParser::partition(input)
+    }
+
+    pub fn parse_z3_address_translation<S: AsRef<str>>(
+        input: S,
+    ) -> ParseResult<structures::TopLevelRoutingProgram> {
+        let inputs = AstParser::parse(Rule::z3_address_translation, input.as_ref())?;
+        let input = inputs.single()?;
+        Ok(AstParser::z3_address_translation(input)?.into())
+    }
+}

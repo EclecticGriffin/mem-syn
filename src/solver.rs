@@ -1,4 +1,5 @@
 use super::dsl::ast::AstParser;
+use super::structures::*;
 use super::Trace;
 use z3::{
     ast::{self as z3_ast, Ast, Bool, Datatype, Int, BV},
@@ -218,6 +219,16 @@ impl<'a> ProblemContext<'a> {
         let b = Bool::and(ctx, &bools.iter().collect::<Vec<_>>());
         // let c = Bool::or(ctx, &variants_test.iter().collect::<Vec<_>>());
         (out.clone(), (b & out_bv.to_int(false)._eq(&out)).simplify())
+    }
+
+    fn extract_description(&self, model: &z3::Model, trace: &Trace) -> Component {
+        let banks = self
+            .banks
+            .iter()
+            .zip(self.routing_fns.iter())
+            .map(|(bank, route)| {})
+            .collect::<Vec<_>>();
+        todo!()
     }
 }
 

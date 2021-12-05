@@ -4,6 +4,8 @@ pub struct Component {
     size: u64,
     /// Bitwidth of the stored data elements
     width: u64,
+    /// Width of the indexing ports
+    address_bit_width: u64,
     /// Number of parallel ports in the memory
     port_count: u64,
     /// the list of memory banks where the index corresponds to the input port

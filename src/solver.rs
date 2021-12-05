@@ -1,3 +1,4 @@
+use super::dsl::ast::AstParser;
 use super::Trace;
 use z3::{
     ast::{self as z3_ast, Ast, Bool, Datatype, Int, BV},
@@ -345,5 +346,5 @@ pub fn solve_trace(input: &Trace) {
 
     let bank = model.eval(&prob_ctx.banks[0], true).unwrap();
 
-    println!()
+    println!("{:?}", AstParser::parse_partition(format!("{:?}", bank)));
 }

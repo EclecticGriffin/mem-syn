@@ -1,3 +1,4 @@
+#[derive(Debug, Clone)]
 pub struct Component {
     /// The number of slots in the logical memory
     size: u64,
@@ -9,15 +10,18 @@ pub struct Component {
     banks: Vec<MemoryBank>,
 }
 
+#[derive(Debug, Clone)]
 pub struct MemoryBank {
     routing: TopLevelRoutingProgram,
     memory_layout: TopLevelMemoryLayout,
 }
 
+#[derive(Debug, Clone)]
 pub struct TopLevelMemoryLayout {
     mems: Vec<MemoryLayout>,
 }
 
+#[derive(Debug, Clone)]
 pub enum MemoryLayout {
     Range {
         start: usize,
@@ -41,6 +45,7 @@ macro_rules! memory {
     };
 }
 
+#[derive(Debug, Clone)]
 pub enum TopLevelRoutingProgram {
     Switch(
         Vec<(Condition, SequenceRoutingProg)>,
@@ -49,11 +54,13 @@ pub enum TopLevelRoutingProgram {
     Prog(SequenceRoutingProg),
 }
 
+#[derive(Debug, Clone)]
 pub enum SequenceRoutingProg {
     Sequence(Vec<TerminalRoutingProgram>),
     Prog(TerminalRoutingProgram),
 }
 
+#[derive(Debug, Clone)]
 pub enum TerminalRoutingProgram {
     RShift(usize),
     // these all contain the other value
@@ -64,6 +71,7 @@ pub enum TerminalRoutingProgram {
     Noop,
 }
 
+#[derive(Debug, Clone)]
 pub enum Condition {
     ComparisonPortVal(u64, ComparisonOperator),
     ComparisonValPort(u64, ComparisonOperator),
@@ -72,6 +80,7 @@ pub enum Condition {
     Not(Box<Condition>),
 }
 
+#[derive(Debug, Clone)]
 pub enum ComparisonOperator {
     LessThan,
     Equal,
@@ -81,6 +90,7 @@ pub enum ComparisonOperator {
     GreaterThanOrEqual,
 }
 
+#[derive(Debug, Clone)]
 pub enum ShiftDirection {
     Left,
     Right,

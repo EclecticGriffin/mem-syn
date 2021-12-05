@@ -65,10 +65,10 @@ impl AstParser {
     }
 
     fn hex_num(input: Node) -> ParseResult<u64> {
-        input
-            .as_str()
-            .parse::<u64>()
-            .map_err(|_| input.error("Expected non-negative number"))
+        let string = input.as_str();
+        // drop the hex literal prefix
+        let string = string.chars().skip(2).collect::<String>();
+        Ok(u64::from_str_radix(&string, 16).expect("Expected non-negative number"))
     }
 
     fn comparison_operator(input: Node) -> ParseResult<structures::ComparisonOperator> {
@@ -268,10 +268,12 @@ impl AstParser {
 }
 
 impl AstParser {
-    pub fn parse_partition<S: AsRef<str>>(input: S) -> ParseResult<structures::MemoryLayout> {
+    pub fn parse_partition<S: AsRef<str>>(
+        input: S,
+    ) -> ParseResult<structures::TopLevelMemoryLayout> {
         let inputs = AstParser::parse(Rule::partition, input.as_ref())?;
         let input = inputs.single()?;
-        AstParser::partition(input)
+        Ok(AstParser::partition(input)?.into())
     }
 
     pub fn parse_z3_address_translation<S: AsRef<str>>(

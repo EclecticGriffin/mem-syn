@@ -1,3 +1,4 @@
+use super::Trace;
 #[derive(Debug, Clone)]
 pub struct Component {
     /// The number of slots in the logical memory
@@ -12,10 +13,31 @@ pub struct Component {
     banks: Vec<MemoryBank>,
 }
 
+impl Component {
+    pub fn from_trace(banks: Vec<MemoryBank>, trace: &Trace) -> Component {
+        Self {
+            size: trace.size() as u64,
+            width: 32,
+            address_bit_width: trace.bits_required() as u64,
+            port_count: trace.num_ports() as u64,
+            banks,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct MemoryBank {
     routing: TopLevelRoutingProgram,
     memory_layout: TopLevelMemoryLayout,
+}
+
+impl MemoryBank {
+    pub fn new(routing: TopLevelRoutingProgram, memory_layout: TopLevelMemoryLayout) -> Self {
+        Self {
+            routing,
+            memory_layout,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -308,5 +330,11 @@ impl TopLevelMemoryLayout {
             }
         }
         None
+    }
+}
+
+impl From<MemoryLayout> for TopLevelMemoryLayout {
+    fn from(mem: MemoryLayout) -> Self {
+        Self { mems: vec![mem] }
     }
 }

@@ -226,9 +226,19 @@ impl<'a> ProblemContext<'a> {
             .banks
             .iter()
             .zip(self.routing_fns.iter())
-            .map(|(bank, route)| {})
+            .map(|(bank, route)| {
+                let memory_layout =
+                    AstParser::parse_partition(format!("{:?}", model.eval(bank, true).unwrap()))
+                        .unwrap();
+                let routing = AstParser::parse_z3_address_translation(format!(
+                    "{:?}",
+                    model.eval(route, true).unwrap()
+                ))
+                .unwrap();
+                MemoryBank::new(routing, memory_layout)
+            })
             .collect::<Vec<_>>();
-        todo!()
+        Component::from_trace(banks, trace)
     }
 }
 
@@ -357,5 +367,5 @@ pub fn solve_trace(input: &Trace) {
 
     let bank = model.eval(&prob_ctx.banks[0], true).unwrap();
 
-    println!("{:?}", AstParser::parse_partition(format!("{:?}", bank)));
+    println!("{:?}", prob_ctx.extract_description(&model, input));
 }

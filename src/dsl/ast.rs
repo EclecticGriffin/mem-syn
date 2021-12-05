@@ -1,4 +1,6 @@
+#[allow(unused_imports)]
 use lazy_static::*;
+
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use pest_consume::{match_nodes, Error, Parser};
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;

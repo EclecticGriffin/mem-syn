@@ -3,7 +3,7 @@ use super::structures::*;
 use super::Trace;
 use z3::{
     ast::{self as z3_ast, Ast, Bool, Datatype, Int, BV},
-    DatatypeAccessor, DatatypeBuilder, DatatypeSort, Solver, Sort,
+    DatatypeAccessor, DatatypeBuilder, DatatypeSort, Sort,
 };
 
 struct ProblemContext<'a> {
@@ -87,11 +87,11 @@ impl<'a> ProblemContext<'a> {
 
         let bank = &self.banks[bank_idx];
 
-        let test = self.partition_type.variants[0]
-            .tester
-            .apply(&[bank])
-            .as_bool()
-            .unwrap();
+        // let test = self.partition_type.variants[0]
+        //     .tester
+        //     .apply(&[bank])
+        //     .as_bool()
+        //     .unwrap();
 
         let start = self.partition_type.variants[0].accessors[0]
             .apply(&[bank])
@@ -297,8 +297,8 @@ fn terminal_partition(ctx: &z3::Context) -> z3::DatatypeSort {
 
 pub fn solve_trace(input: &Trace) -> Component {
     let addr_size = input.bits_required();
-    let mut ctx = z3::Context::new(&z3::Config::default());
-    let mut solver = z3::Optimize::new(&ctx);
+    let ctx = z3::Context::new(&z3::Config::default());
+    let solver = z3::Optimize::new(&ctx);
 
     let terminal_rprogs = terminal_routing_program(&ctx, addr_size);
     let term_part = terminal_partition(&ctx);

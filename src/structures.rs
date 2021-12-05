@@ -261,7 +261,7 @@ impl MemoryLayout {
     }
 
     #[inline]
-    pub fn contains(&self, target: &usize) -> bool {
+    pub fn _contains(&self, target: &usize) -> bool {
         match self {
             MemoryLayout::Range {
                 start,
@@ -271,8 +271,8 @@ impl MemoryLayout {
         }
     }
 
-    pub fn index_of(&self, target: &usize) -> Option<usize> {
-        if self.contains(target) {
+    pub fn _index_of(&self, target: &usize) -> Option<usize> {
+        if self._contains(target) {
             let out = match self {
                 MemoryLayout::Range { start, stride, .. } => (target - start) / stride,
             };
@@ -291,7 +291,7 @@ impl MemoryLayout {
         }
     }
 
-    pub fn gen_array(&self) -> Vec<usize> {
+    pub fn _gen_array(&self) -> Vec<usize> {
         let mut out = Vec::with_capacity(self.size());
         match self {
             MemoryLayout::Range {
@@ -308,7 +308,7 @@ impl MemoryLayout {
                 debug_assert!(out
                     .iter()
                     .enumerate()
-                    .all(|(i, x)| self.index_of(x).unwrap_or_else(|| panic!("{:?}", x)) == i));
+                    .all(|(i, x)| self._index_of(x).unwrap_or_else(|| panic!("{:?}", x)) == i));
                 debug_assert!(out
                     .iter()
                     .enumerate()
@@ -319,7 +319,7 @@ impl MemoryLayout {
         }
     }
 
-    pub fn last_idx(&self) -> usize {
+    pub fn _last_idx(&self) -> usize {
         self.size() - 1
     }
 
@@ -328,26 +328,22 @@ impl MemoryLayout {
             return None;
         }
         match self {
-            MemoryLayout::Range {
-                start,
-                finish,
-                stride,
-            } => Some(start + (stride * idx)),
+            MemoryLayout::Range { start, stride, .. } => Some(start + (stride * idx)),
         }
     }
 }
 
 impl TopLevelMemoryLayout {
-    pub fn contains(&self, target: &usize) -> bool {
-        self.mems.iter().any(|x| x.contains(target))
+    pub fn _contains(&self, target: &usize) -> bool {
+        self.mems.iter().any(|x| x._contains(target))
     }
 
-    pub fn index_of(&self, target: &usize) -> Option<usize> {
+    pub fn _index_of(&self, target: &usize) -> Option<usize> {
         let mut idx = 0;
 
         for mem in self.mems.iter() {
-            if mem.contains(target) {
-                idx += mem.index_of(target).unwrap();
+            if mem._contains(target) {
+                idx += mem._index_of(target).unwrap();
                 return Some(idx);
             } else {
                 idx += mem.size();

@@ -25,6 +25,7 @@ range_ast = { "[" ~ num ~ ":" ~ num ~ (":" ~ num)? ~ "]"}
 partition = {
     (range_z3 | range_ast)
 }
+ast_partition = {("[" ~ range_ast+ ~ "]") | range_ast}
 
 z3_noop = { ^"NOOP" }
 z3_rshift = { LPAREN ~ ^"RShift" ~ hex_num ~ RPAREN }
@@ -90,3 +91,7 @@ ast_translation_switch_default = { "->" ~ ast_translation_mid_level }
 ast_translation_switch = { "switch" ~ "{" ~ ast_translation_switch_case ~ ("," ~ ast_translation_switch_case)* ~ "," ~ ast_translation_switch_default ~ "}" }
 
 ast_translation_top_level = { ast_translation_switch | ast_translation_mid_level}
+
+bank = { ^"bank" ~ "{" ~ "layout:" ~ ast_partition ~ "translation:" ~ ast_translation_top_level ~ "}"}
+
+component = { ^"memory" ~ "<" ~ num ~ "," ~ num ~ ">" ~ "{" ~ bank+ ~ "}" }

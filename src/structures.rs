@@ -1,4 +1,10 @@
+use std::fmt::Write;
+
+use super::dsl::bits_required;
 use super::Trace;
+
+const INPUT: &str = "INPUT";
+
 #[derive(Debug, Clone)]
 pub struct Component {
     /// The number of slots in the logical memory
@@ -14,12 +20,21 @@ pub struct Component {
 }
 
 impl Component {
-    pub fn from_trace(banks: Vec<MemoryBank>, trace: &Trace) -> Component {
+    pub fn from_trace(banks: Vec<MemoryBank>, trace: &Trace) -> Self {
         Self {
             size: trace.size() as u64,
             width: trace.bitwidth() as u64,
             address_bit_width: trace.bits_required() as u64,
             port_count: trace.num_ports() as u64,
+            banks,
+        }
+    }
+    pub fn from_parse(size: u64, width: u64, banks: Vec<MemoryBank>) -> Self {
+        Self {
+            size,
+            width,
+            address_bit_width: bits_required(width as usize) as u64,
+            port_count: banks.len() as u64,
             banks,
         }
     }
@@ -43,6 +58,12 @@ impl MemoryBank {
 #[derive(Debug, Clone)]
 pub struct TopLevelMemoryLayout {
     mems: Vec<MemoryLayout>,
+}
+
+impl TopLevelMemoryLayout {
+    pub fn new(mems: Vec<MemoryLayout>) -> Self {
+        Self { mems }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -114,11 +135,11 @@ pub enum ComparisonOperator {
     GreaterThanOrEqual,
 }
 
-#[derive(Debug, Clone)]
-pub enum ShiftDirection {
-    Left,
-    Right,
-}
+// #[derive(Debug, Clone)]
+// pub enum ShiftDirection {
+//     Left,
+//     Right,
+// }
 
 impl ComparisonOperator {
     pub fn eval(&self, left: &u64, right: &u64) -> bool {
@@ -336,5 +357,178 @@ impl TopLevelMemoryLayout {
 impl From<MemoryLayout> for TopLevelMemoryLayout {
     fn from(mem: MemoryLayout) -> Self {
         Self { mems: vec![mem] }
+    }
+}
+
+impl TerminalRoutingProgram {
+    pub fn pretty_print(&self) -> String {
+        match self {
+            TerminalRoutingProgram::RShift(n) => format!("{} >> {}", INPUT, n),
+            TerminalRoutingProgram::Add(n) => format!("{} + {}", INPUT, n),
+            TerminalRoutingProgram::SubPortVal(n) => format!("{} - {}", INPUT, n),
+            TerminalRoutingProgram::SubValPort(n) => format!("{} - {}", n, INPUT),
+            TerminalRoutingProgram::Constant(n) => format!("{}", n),
+            TerminalRoutingProgram::Noop => "NOOP".to_string(),
+        }
+    }
+}
+
+impl SequenceRoutingProg {
+    pub fn pretty_print(&self, level: usize) -> String {
+        match self {
+            SequenceRoutingProg::Sequence(s) => {
+                let mut string = String::new();
+                write!(string, "[").unwrap();
+                write!(string, "{}{}", " ".repeat(level * 4), s[0].pretty_print()).unwrap();
+                for element in s.iter().skip(1) {
+                    writeln!(
+                        string,
+                        ",{}{}",
+                        " ".repeat(level * 4),
+                        element.pretty_print()
+                    )
+                    .unwrap();
+                }
+                write!(string, "{}]", " ".repeat(level * 4)).unwrap();
+                string
+            }
+            SequenceRoutingProg::Prog(p) => p.pretty_print(),
+        }
+    }
+}
+
+impl ComparisonOperator {
+    pub fn pretty_print(&self) -> String {
+        String::from(match self {
+            ComparisonOperator::LessThan => "<",
+            ComparisonOperator::Equal => "==",
+            ComparisonOperator::GreaterThan => ">",
+            ComparisonOperator::NotEqual => "!=",
+            ComparisonOperator::LessThanOrEqual => "<=",
+            ComparisonOperator::GreaterThanOrEqual => ">=",
+        })
+    }
+}
+
+impl Condition {
+    pub fn pretty_print(&self) -> String {
+        match self {
+            Condition::ComparisonPortVal(val, op) => {
+                format!("{} {} {}", INPUT, op.pretty_print(), val)
+            }
+            Condition::ComparisonValPort(val, op) => {
+                format!("{} {} {}", val, op.pretty_print(), INPUT)
+            }
+            Condition::And(first, second) => {
+                format!("({} && {})", first.pretty_print(), second.pretty_print())
+            }
+            Condition::Or(first, second) => {
+                format!("({} || {})", first.pretty_print(), second.pretty_print())
+            }
+            Condition::Not(c) => format!("!({})", c.pretty_print()),
+        }
+    }
+}
+
+impl TopLevelRoutingProgram {
+    pub fn pretty_print(&self, level: usize) -> String {
+        match self {
+            TopLevelRoutingProgram::Switch(cases, default) => {
+                let mut string = String::new();
+                writeln!(string, "{}switch {{", " ".repeat(level * 4)).unwrap();
+                for (cond, prog) in cases {
+                    writeln!(
+                        string,
+                        "{}\t{} -> {},",
+                        " ".repeat(level * 4),
+                        cond.pretty_print(),
+                        prog.pretty_print(level + 1)
+                    )
+                    .unwrap();
+                }
+                writeln!(
+                    string,
+                    "{}\t -> {}",
+                    " ".repeat(level * 4),
+                    default.pretty_print(level + 1)
+                )
+                .unwrap();
+                writeln!(string, "{}}}", " ".repeat(level * 4)).unwrap();
+                string
+            }
+            TopLevelRoutingProgram::Prog(p) => p.pretty_print(level),
+        }
+    }
+}
+
+impl MemoryLayout {
+    pub fn pretty_print(&self) -> String {
+        match self {
+            MemoryLayout::Range {
+                start,
+                finish,
+                stride,
+            } => format!("[{}:{}:{}]", start, finish, stride),
+        }
+    }
+}
+
+impl TopLevelMemoryLayout {
+    pub fn pretty_print(&self, level: usize) -> String {
+        match self.mems.len() {
+            0 => unreachable!(),
+            1 => self.mems[0].pretty_print(),
+            _ => {
+                let mut string = String::new();
+                writeln!(string, "{}[", " ".repeat(level * 4)).unwrap();
+                write!(
+                    string,
+                    "{}\t{}",
+                    " ".repeat(level * 4),
+                    self.mems[0].pretty_print()
+                )
+                .unwrap();
+                for x in self.mems.iter().skip(1) {
+                    write!(string, ",\n{}\t{}", " ".repeat(level * 4), x.pretty_print()).unwrap();
+                }
+                writeln!(string, "{}\n]", " ".repeat(level * 4)).unwrap();
+                string
+            }
+        }
+    }
+}
+
+impl MemoryBank {
+    pub fn pretty_print(&self, level: usize) -> String {
+        let mut string = String::new();
+        writeln!(string, "{}bank {{", " ".repeat(level * 4)).unwrap();
+        writeln!(
+            string,
+            "{}\tlayout: {}",
+            " ".repeat(level * 4),
+            self.memory_layout.pretty_print(level + 1)
+        )
+        .unwrap();
+        writeln!(
+            string,
+            "{}\ttranslation: {}",
+            " ".repeat(level * 4),
+            self.routing.pretty_print(level + 1)
+        )
+        .unwrap();
+        writeln!(string, "{}}}", " ".repeat(level * 4)).unwrap();
+        string
+    }
+}
+
+impl Component {
+    pub fn pretty_print(&self) -> String {
+        let mut string = String::new();
+        writeln!(string, "memory<{},{}> {{", self.width, self.size).unwrap();
+        for bank in &self.banks {
+            writeln!(string, "{}", bank.pretty_print(1)).unwrap();
+        }
+        writeln!(string, "}}").unwrap();
+        string
     }
 }

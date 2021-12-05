@@ -1,7 +1,6 @@
 use lazy_static::*;
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use pest_consume::{match_nodes, Error, Parser};
-
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, ()>;
 
@@ -265,6 +264,23 @@ impl AstParser {
                 [ast_translation_mid_level(n)] => structures::TopLevelRoutingProgram::Prog(n)
         ))
     }
+    fn ast_partition(input: Node) -> ParseResult<structures::TopLevelMemoryLayout> {
+        Ok(match_nodes!(input.into_children();
+            [range_ast(a)..] => structures::TopLevelMemoryLayout::new(a.collect())))
+    }
+
+    fn bank(input: Node) -> ParseResult<structures::MemoryBank> {
+        Ok(match_nodes!(input.into_children();
+        [ast_partition(p), ast_translation_top_level(tr)] => structures::MemoryBank::new(tr, p)
+        ))
+    }
+    fn component(input: Node) -> ParseResult<structures::Component> {
+        Ok(match_nodes!(input.into_children();
+                [num(bitwidth), num(size), bank(b)..] => {
+                    structures::Component::from_parse(size,bitwidth, b.collect())
+                }
+        ))
+    }
 }
 
 impl AstParser {
@@ -282,5 +298,10 @@ impl AstParser {
         let inputs = AstParser::parse(Rule::z3_address_translation, input.as_ref())?;
         let input = inputs.single()?;
         Ok(AstParser::z3_address_translation(input)?.into())
+    }
+    pub fn parse_component<S: AsRef<str>>(input: S) -> ParseResult<structures::Component> {
+        let inputs = AstParser::parse(Rule::component, input.as_ref())?;
+        let input = inputs.single()?;
+        AstParser::component(input)
     }
 }

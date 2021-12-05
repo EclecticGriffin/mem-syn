@@ -295,7 +295,7 @@ fn terminal_partition(ctx: &z3::Context) -> z3::DatatypeSort {
     part
 }
 
-pub fn solve_trace(input: &Trace) {
+pub fn solve_trace(input: &Trace) -> Component {
     let addr_size = input.bits_required();
     let mut ctx = z3::Context::new(&z3::Config::default());
     let mut solver = z3::Optimize::new(&ctx);
@@ -358,14 +358,10 @@ pub fn solve_trace(input: &Trace) {
 
     solver.minimize(&prob_ctx.partition_cost());
 
-    println!("{:?}", solver.check(&[]));
+    solver.check(&[]);
 
     // println!("{:?}", solver);
 
     let model = solver.get_model().unwrap();
-    println!("{:?}", &model);
-
-    let bank = model.eval(&prob_ctx.banks[0], true).unwrap();
-
-    println!("{:?}", prob_ctx.extract_description(&model, input));
+    prob_ctx.extract_description(&model, input)
 }

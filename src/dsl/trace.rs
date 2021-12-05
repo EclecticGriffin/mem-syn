@@ -55,8 +55,13 @@ impl Trace {
         self.trace.iter()
     }
 
+    #[inline]
     pub fn bits_required(&self) -> u32 {
-        let bits = std::mem::size_of::<usize>() * 8;
-        (bits as u32) - self.size.leading_zeros() - 1
+        bits_required(self.size)
     }
+}
+
+pub fn bits_required(size: usize) -> u32 {
+    let bits = std::mem::size_of::<usize>() * 8;
+    (bits as u32) - size.leading_zeros() - 1
 }

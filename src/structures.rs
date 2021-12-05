@@ -61,6 +61,7 @@ pub enum TerminalRoutingProgram {
     SubPortVal(u64),
     SubValPort(u64),
     Constant(u64),
+    Noop,
 }
 
 pub enum Condition {
@@ -118,6 +119,7 @@ impl TerminalRoutingProgram {
             TerminalRoutingProgram::SubValPort(v) => (v - port_val),
             TerminalRoutingProgram::Constant(c) => *c,
             TerminalRoutingProgram::RShift(amount) => port_val >> amount,
+            TerminalRoutingProgram::Noop => port_val,
         }
     }
 }

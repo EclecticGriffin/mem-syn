@@ -13,7 +13,9 @@ struct ProblemContext<'a> {
 }
 
 impl<'a> ProblemContext<'a> {
-    fn partition_cost(&self, ctx: &'a z3::Context) -> Int<'a> {
+    fn partition_cost(&self) -> Int<'a> {
+        let ctx = self.banks[0].get_ctx();
+
         self.banks
             .iter()
             .map(|bank| {
@@ -36,7 +38,8 @@ impl<'a> ProblemContext<'a> {
             .fold(Int::from_u64(ctx, 1), |acc, x| acc * x)
     }
 
-    fn partition_conditions(&self, ctx: &'a z3::Context, size: usize) -> Bool<'a> {
+    fn partition_conditions(&self, size: usize) -> Bool<'a> {
+        let ctx = self.banks[0].get_ctx();
         let mut acc = Bool::from_bool(ctx, true);
         for bank in self.banks.iter() {
             let test = self.partition_type.variants[0]
@@ -75,8 +78,8 @@ impl<'a> ProblemContext<'a> {
         &self,
         input_index: &z3_ast::Int<'a>,
         bank_idx: usize,
-        ctx: &'a z3::Context,
     ) -> (Bool<'a>, z3_ast::Int<'a>) {
+        let ctx = input_index.get_ctx();
         let (out, cond) =
             self.apply_terminal(input_index, bank_idx, &self.routing_fns[bank_idx], ctx);
 
@@ -294,13 +297,13 @@ pub fn solve_trace(input: &Trace) {
         partition_type: term_part,
     };
 
-    solver.assert(&prob_ctx.partition_conditions(&ctx, input.size()));
+    solver.assert(&prob_ctx.partition_conditions(input.size()));
 
     for line in input.iter() {
         for (bank_idx, request) in line.iter().enumerate() {
             if let Some(request_index) = request {
                 let req_int = z3_ast::Int::from_u64(&ctx, *request_index as u64);
-                let (cond1, index_maps_to) = prob_ctx.map_addr(&req_int, bank_idx, &ctx);
+                let (cond1, index_maps_to) = prob_ctx.map_addr(&req_int, bank_idx);
 
                 let index_correctness_bool = index_maps_to._eq(&req_int);
                 solver.assert(&cond1);
@@ -331,11 +334,16 @@ pub fn solve_trace(input: &Trace) {
     //     solver.assert(&z3_ast::Bool::or(&ctx, &borrow_bools));
     // }
 
-    solver.minimize(&prob_ctx.partition_cost(&ctx));
+    solver.minimize(&prob_ctx.partition_cost());
 
-    solver.check(&[]);
+    println!("{:?}", solver.check(&[]));
 
-    println!("{:?}", solver);
+    // println!("{:?}", solver);
 
-    println!("{:?}", solver.get_model().unwrap())
+    let model = solver.get_model().unwrap();
+    println!("{:?}", &model);
+
+    let bank = model.eval(&prob_ctx.banks[0], true).unwrap();
+
+    println!()
 }

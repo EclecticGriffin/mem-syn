@@ -1,0 +1,92 @@
+WHITESPACE = _{ " " | "\t" | NEWLINE }
+LPAREN = _{ "(" }
+RPAREN = _{ ")" }
+HEX_LITERAL_PREFIX = _{"#x"}
+
+
+LEQ = {"<="}
+GEQ = {">="}
+EQ = {"=="}
+NEQ = {"!=" | "=/="}
+LT = {"<"}
+GT = {">"}
+
+comparison_operator = {
+    (LEQ | GEQ | EQ | NEQ | LT | GT)
+}
+
+hex_num = @{ HEX_LITERAL_PREFIX ~ (ASCII_HEX_DIGIT)+ }
+
+num = @{ (ASCII_DIGIT)+ }
+
+range_z3 = { LPAREN ~ ^"Range" ~ num ~ num ~ num ~ RPAREN }
+range_ast = { "[" ~ num ~ ":" ~ num ~ (":" ~ num)? ~ "]"}
+
+partition = {
+    (range_z3 | range_ast)
+}
+
+z3_noop = { ^"NOOP" }
+z3_rshift = { LPAREN ~ ^"RShift" ~ hex_num ~ RPAREN }
+z3_add = { LPAREN ~ ^"Add" ~ hex_num ~ RPAREN }
+z3_subpv = { LPAREN ~ ^"SubPV" ~ hex_num ~ RPAREN }
+z3_subvp = { LPAREN ~ ^"SubVP" ~ hex_num ~ RPAREN }
+z3_constant = { LPAREN ~ ^"Constant" ~ hex_num ~ RPAREN }
+
+z3_address_translation = {
+    z3_constant |
+    z3_subvp |
+    z3_subpv |
+    z3_add |
+    z3_rshift |
+    z3_noop
+}
+
+input_literal = _{^"INPUT"}
+
+ast_p_v_comp = { input_literal ~ comparison_operator ~ num }
+ast_v_p_comp = { num ~ comparison_operator ~ input_literal }
+
+ast_comparison = { (ast_p_v_comp | ast_v_p_comp) }
+
+
+
+ast_not =  { "!" }
+ast_and = { "&&" }
+ast_or = { "||" }
+
+ast_operator = _{ ast_and | ast_or }
+ast_bool_expression = {ast_bool ~ (ast_operator ~ ast_bool)* }
+ast_bool = {
+    ast_not ~ ast_bool_expression |
+    ast_not ~ "(" ~ ast_bool_expression ~ ")" |
+    "(" ~ ast_bool_expression ~ ")" |
+    ast_comparison
+}
+
+ast_add = { (input_literal ~ "+" ~ num) | (num ~ "+" ~ input_literal) }
+ast_subpv = { input_literal ~ "-" ~ num }
+ast_subvp = { num ~ "-" ~ input_literal }
+ast_constant = { num }
+ast_rshift = { input_literal ~ ">>" ~ num }
+ast_noop = { "NOOP" }
+ast_translation_terminal = {(
+    ast_add |
+    ast_subvp |
+    ast_subpv |
+    ast_constant |
+    ast_rshift |
+    ast_noop
+)}
+
+ast_translation_sequence = {"[" ~ ast_translation_terminal ~ (";" ~ ast_translation_terminal)* ~ "]"}
+
+
+ast_translation_mid_level = { ast_translation_sequence | ast_translation_terminal }
+
+ast_translation_switch_case = { ast_bool ~ "->" ~ ast_translation_mid_level }
+ast_translation_switch_default = { "->" ~ ast_translation_mid_level }
+
+ast_translation_switch = { "switch" ~ "{" ~ ast_translation_switch_case ~ ("," ~ ast_translation_switch_case)* ~ "," ~ ast_translation_switch_default ~ "}" }
+
+ast_translation_top_level = { ast_translation_switch | ast_translation_mid_level}

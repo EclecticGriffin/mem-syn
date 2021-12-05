@@ -1,0 +1,17 @@
+memory<32,18> {
+    bank {
+    	layout: [0:6:1]
+    	translation: NOOP
+    }
+
+    bank {
+    	layout: [6:12:1]
+    	translation: INPUT - 6
+    }
+
+    bank {
+    	layout: [12:18:1]
+    	translation: INPUT - 12
+    }
+
+}

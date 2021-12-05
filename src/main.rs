@@ -2,6 +2,7 @@ mod dsl;
 mod solver;
 mod structures;
 
+use dsl::ast::AstParser;
 use dsl::Trace;
 
 use argh::FromArgs;
@@ -63,12 +64,13 @@ struct VerifyCommand {
 fn main() {
     let args: Args = argh::from_env();
 
+    let mut output: Box<dyn Write> = args.output.map_or_else(
+        || Box::new(std::io::stdout()) as Box<dyn Write>,
+        |x| Box::new(File::create(&Path::new(&x)).unwrap()),
+    );
+
     match args.command {
         Command::Synthesize(s) => {
-            let mut output: Box<dyn Write> = args.output.map_or_else(
-                || Box::new(std::io::stdout()) as Box<dyn Write>,
-                |x| Box::new(File::create(&Path::new(&x)).unwrap()),
-            );
             let mut file = File::open(&Path::new(&s.trace_file)).expect("Couldn't find trace file");
             let mut contents = String::new();
             file.read_to_string(&mut contents)
@@ -79,7 +81,43 @@ fn main() {
             let comp = solver::solve_trace(&trace);
             write!(output, "{}", comp.pretty_print()).unwrap();
         }
-        Command::Output(_) => todo!(),
-        Command::Verify(_) => todo!(),
+        Command::Output(OutputCommand { memory_description }) => {
+            let mut file = File::open(&Path::new(&memory_description))
+                .expect("Couldn't find description file");
+            let mut contents = String::new();
+            file.read_to_string(&mut contents)
+                .expect("Couldn't read trace file");
+            let description =
+                AstParser::parse_component(contents).expect("Couldn't parse description");
+            write!(output, "{}", description.emit_calyx_comp()).unwrap();
+        }
+        Command::Verify(VerifyCommand {
+            memory_description,
+            trace_file,
+        }) => {
+            let mut description_file = File::open(&Path::new(&memory_description))
+                .expect("Couldn't find description file");
+            let mut description = String::new();
+            description_file
+                .read_to_string(&mut description)
+                .expect("Couldn't read description file");
+
+            let mut trace_file =
+                File::open(&Path::new(&trace_file)).expect("Couldn't find trace file");
+            let mut trace = String::new();
+            trace_file
+                .read_to_string(&mut trace)
+                .expect("Couldn't read trace file");
+
+            let trace = Trace::parse_trace(trace).expect("malformed trace file");
+            let comp = AstParser::parse_component(description).expect("Couldn't parse description");
+            let result = comp.vailidate(&trace);
+
+            if result {
+                println!("✅ Validated successfully")
+            } else {
+                println!("❌ Validation failed")
+            }
+        }
     }
 }

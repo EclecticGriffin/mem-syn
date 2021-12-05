@@ -38,6 +38,22 @@ impl Component {
             banks,
         }
     }
+    pub fn emit_calyx_comp(&self) -> String {
+        todo!()
+    }
+
+    pub fn vailidate(&self, trace: &Trace) -> bool {
+        for line in trace.iter() {
+            for (idx, request) in line.iter().enumerate() {
+                if let Some(request) = request {
+                    if !self.banks[idx].can_read(*request) {
+                        return false;
+                    }
+                }
+            }
+        }
+        true
+    }
 }
 
 #[derive(Debug, Clone)]

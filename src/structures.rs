@@ -38,8 +38,89 @@ impl Component {
             banks,
         }
     }
+
+    fn emit_input_ports(&self) -> String {
+        let mut w = String::new();
+        let last_idx = self.banks.len() - 1;
+        for (idx, _) in self.banks.iter().enumerate() {
+            if idx != last_idx {
+                write!(w, "bank_{}_addr:{}, ", idx, self.address_bit_width).unwrap()
+            } else {
+                write!(w, "bank_{}_addr:{}", idx, self.address_bit_width).unwrap()
+            }
+        }
+        w
+    }
+    fn emit_output_ports(&self) -> String {
+        let mut w = String::new();
+        let last_idx = self.banks.len() - 1;
+        for (idx, _) in self.banks.iter().enumerate() {
+            if idx != last_idx {
+                write!(w, "read_bank_{}_addr:{}, ", idx, self.width).unwrap()
+            } else {
+                write!(w, "read_bank_{}_addr:{}", idx, self.width).unwrap()
+            }
+        }
+        w
+    }
+    fn emit_cells(&self) -> String {
+        let mut w = String::new();
+        for (idx, bank) in self.banks.iter().enumerate() {
+            writeln!(
+                w,
+                "{}@external bank_{} = std_mem_d1({width}, {size}, {addr_width});",
+                " ".repeat(8),
+                idx,
+                width = self.width,
+                size = bank.size(),
+                addr_width = self.address_bit_width
+            )
+            .unwrap();
+        }
+        w
+    }
+    fn emit_wires(&self) -> (String, String) {
+        let mut w = String::new();
+        let mut c = String::new();
+        for (idx, bank) in self.banks.iter().enumerate() {
+            let (ic, iw) = bank.emit_wires(idx, self.address_bit_width as usize);
+            writeln!(w, "{}", iw).unwrap();
+            writeln!(c, "{}", ic).unwrap();
+        }
+        (c, w)
+    }
+
     pub fn emit_calyx_comp(&self) -> String {
-        todo!()
+        let mut w = String::new();
+        let (translation_cells, wires) = self.emit_wires();
+        // TODO: fix this nightmare
+        writeln!(
+            w,
+            r#"
+import "primitives/core.futil";
+component mem_{size}_{port_count}({input_ports}) -> ({output_ports}) {{
+    cells {{
+{cells}
+{translation_cells}
+    }}
+    wires {{
+{wires}
+
+    }}
+    control {{}}
+}}
+
+"#,
+            size = self.size,
+            port_count = self.port_count,
+            input_ports = self.emit_input_ports(),
+            output_ports = self.emit_output_ports(),
+            cells = self.emit_cells(),
+            translation_cells = translation_cells,
+            wires = wires,
+        )
+        .unwrap();
+        w
     }
 
     pub fn vailidate(&self, trace: &Trace) -> bool {
@@ -69,6 +150,80 @@ impl MemoryBank {
             memory_layout,
         }
     }
+    pub fn size(&self) -> usize {
+        self.memory_layout.size()
+    }
+
+    pub fn emit_wires(&self, bank_idx: usize, addr_width: usize) -> (String, String) {
+        let mut c = String::new();
+        let mut w = String::new();
+
+        if let TopLevelRoutingProgram::Prog(SequenceRoutingProg::Prog(p)) = &self.routing {
+            match p {
+                TerminalRoutingProgram::RShift(rs) => {
+                    writeln!(c, "rsh_{} = std_rsh({});", bank_idx, addr_width).unwrap();
+                    writeln!(w, "rsh_{idx}.left = bank_{idx}_addr;", idx = bank_idx).unwrap();
+                    writeln!(w, "rsh_{}.right = {}'d{};", bank_idx, addr_width, rs).unwrap();
+                    writeln!(w, "bank_{idx}.addr0 = rsh_{idx}.out;", idx = bank_idx).unwrap();
+                    writeln!(
+                        w,
+                        "read_bank_{idx}_addr = bank_{idx}.read_data;",
+                        idx = bank_idx
+                    )
+                    .unwrap();
+                }
+                TerminalRoutingProgram::Add(a) => {
+                    writeln!(c, "add_{} = std_add({});", bank_idx, addr_width).unwrap();
+                    writeln!(w, "add_{idx}.left = bank_{idx}_addr;", idx = bank_idx).unwrap();
+                    writeln!(w, "add_{}.right = {}'d{};", bank_idx, addr_width, a).unwrap();
+                    writeln!(w, "bank_{idx}.addr0 = add_{idx}.out;", idx = bank_idx).unwrap();
+                    writeln!(
+                        w,
+                        "read_bank_{idx}_addr = bank_{idx}.read_data;",
+                        idx = bank_idx
+                    )
+                    .unwrap();
+                }
+                TerminalRoutingProgram::SubPortVal(v) => {
+                    writeln!(c, "sub_{} = std_sub({});", bank_idx, addr_width).unwrap();
+                    writeln!(w, "sub_{idx}.left = bank_{idx}_addr;", idx = bank_idx).unwrap();
+                    writeln!(w, "sub_{}.right = {}'d{};", bank_idx, addr_width, v).unwrap();
+                    writeln!(w, "bank_{idx}.addr0 = sub_{idx}.out;", idx = bank_idx).unwrap();
+                    writeln!(
+                        w,
+                        "read_bank_{idx}_addr = bank_{idx}.read_data;",
+                        idx = bank_idx
+                    )
+                    .unwrap();
+                }
+                TerminalRoutingProgram::SubValPort(v) => {
+                    writeln!(c, "sub_{} = std_sub({});", bank_idx, addr_width).unwrap();
+                    writeln!(w, "sub_{idx}.right = bank_{idx}_addr;", idx = bank_idx).unwrap();
+                    writeln!(w, "sub_{}.left = {}'d{};", bank_idx, addr_width, v).unwrap();
+                    writeln!(w, "bank_{idx}.addr0 = sub_{idx}.out;", idx = bank_idx).unwrap();
+                    writeln!(
+                        w,
+                        "read_bank_{idx}_addr = bank_{idx}.read_data;",
+                        idx = bank_idx
+                    )
+                    .unwrap();
+                }
+                TerminalRoutingProgram::Constant(c) => todo!(), // useless in elemental context
+                TerminalRoutingProgram::Noop => {
+                    writeln!(w, "bank_{idx}.addr0 = bank_{idx}_addr;", idx = bank_idx).unwrap();
+                    writeln!(
+                        w,
+                        "read_bank_{idx}_addr = bank_{idx}.read_data;",
+                        idx = bank_idx
+                    )
+                    .unwrap();
+                }
+            }
+        } else {
+            todo!("Cannot do more complex routing");
+        }
+        (c, w)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -79,6 +234,9 @@ pub struct TopLevelMemoryLayout {
 impl TopLevelMemoryLayout {
     pub fn new(mems: Vec<MemoryLayout>) -> Self {
         Self { mems }
+    }
+    pub fn size(&self) -> usize {
+        self.mems.iter().map(|x| x.size()).sum()
     }
 }
 

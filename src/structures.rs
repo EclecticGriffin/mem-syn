@@ -208,7 +208,7 @@ impl MemoryBank {
                     )
                     .unwrap();
                 }
-                TerminalRoutingProgram::Constant(c) => todo!(), // useless in elemental context
+                TerminalRoutingProgram::Constant(_) => todo!(), // useless in elemental context
                 TerminalRoutingProgram::Noop => {
                     writeln!(w, "bank_{idx}.addr0 = bank_{idx}_addr;", idx = bank_idx).unwrap();
                     writeln!(
